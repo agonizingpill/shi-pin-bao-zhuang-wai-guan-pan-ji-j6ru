@@ -274,3 +274,28 @@ dialog p { color: var(--muted); margin-bottom: 12px; }
   .login-side { place-items: start center; padding-top: 39px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; } }
+
+/* 托盘抽检 */
+.pallet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.pallet-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--line); }
+.pallet-head h3 { font-size: 15px; font-weight: 800; }
+.pallet-head > div { display: flex; gap: 6px; }
+.pallet-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 12px; margin-bottom: 10px; }
+.pallet-stats small { display: block; color: var(--muted); margin-bottom: 2px; }
+.pallet-stats b { font-size: 14px; }
+.pallet-interval { font-size: 12px; color: var(--pine); margin-bottom: 10px; }
+.progress { height: 6px; background: oklch(92% .019 98); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+.progress i { display: block; height: 100%; width: var(--p, 0%); background: var(--pine); }
+.pallet-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pallet-foot form { margin: 0; }
+.pallet-foot button { min-height: 30px; padding: 4px 11px; font-size: 11px; }
+.pallet-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.sampling-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; align-items: start; }
+.gate-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
+.gate-list li.ok { color: var(--pine); font-weight: 700; }
+.basis .pallet-stats { grid-template-columns: repeat(4, 1fr); margin-bottom: 12px; }
+.status.sampling, .status.pending { background: oklch(92% .053 103); color: oklch(44% .085 86); }
+.status.full_inspection, .status.fail, .status.rejected { background: var(--amber); color: var(--rust); }
+.status.ready, .status.pass, .status.judged { background: var(--green); color: var(--forest); }
+.status.full { background: var(--amber); color: var(--rust); }
+@media (max-width: 1100px) { .sampling-grid { grid-template-columns: 1fr; } }

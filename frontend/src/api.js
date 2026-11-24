@@ -39,6 +39,7 @@ export const api = {
   lots: () => request('/lots'),
   materials: () => request('/materials'),
   detail: id => request(`/lots/${id}`),
+  sampling: id => request(`/lots/${id}/sampling`),
   register: payload => request('/lots', payload, 'POST'),
   action: (id, endpoint, payload) => request(`/lots/${id}/${endpoint}`, payload, 'POST'),
 };

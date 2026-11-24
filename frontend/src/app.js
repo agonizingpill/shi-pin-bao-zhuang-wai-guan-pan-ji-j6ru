@@ -4,10 +4,11 @@ import {brand, channelName, empty, lotLink, safe} from './ui.js';
 import {lotsPage} from './pages/lots.js';
 import {workbenchPage} from './pages/workbench.js';
 import {reworkPage} from './pages/rework.js';
+import {samplingPage} from './pages/sampling.js';
 
 const root = document.querySelector('#app');
 const store = {lots:[], materials:[], detail:null, loading:true, error:'', zone:'front', filter:{search:'',state:''}};
-const pages = {lots:'包装批次', workbench:'判级工作台', rework:'返工领料'};
+const pages = {lots:'包装批次', workbench:'判级工作台', rework:'返工领料', sampling:'托盘抽检'};
 let revision = 0;
 let poll;
 let feedbackTimer;
@@ -40,6 +41,7 @@ function render() {
     lots: () => lotsPage(store.lots,store.materials,account,store.filter),
     workbench: () => workbenchPage(store.lots,store.detail,account,store.zone),
     rework: () => reworkPage(store.lots,store.detail,account),
+    sampling: () => samplingPage(store.lots,store.detail,account),
   }[page]();
   root.innerHTML = `<div class="shell"><aside class="sidebar"><a href="/lots" data-nav class="brand-link">${brand()}</a><div class="side-content"><p class="sidebar-kicker">线边质检</p><nav aria-label="主导航">${Object.entries(pages).map(([route,label],index)=>`<a data-nav href="/${route}" ${route === page ? 'aria-current="page"' : ''}><span class="nav-icon icon-${index}" aria-hidden="true"></span>${label}</a>`).join('')}</nav></div><div class="side-footer"><span class="online"></span>视觉机台 VS-01–03</div></aside><div class="main-shell"><header class="topbar"><span>品控中心 <b>/</b> ${pages[page]}</span><div><span class="account-name">${safe(account.display_name)}</span><button data-logout>退出</button></div></header><main class="content" id="main">${body}</main></div></div><div id="feedback" role="status" aria-live="polite"></div>`;
 }
@@ -61,13 +63,15 @@ async function load(quiet = false) {
     const [lots, materials] = await Promise.all([api.lots(), route.page === 'lots' ? api.materials() : []]);
     const eligible = route.page === 'rework' ? lots.filter(lot => lot.rework_state) : lots;
     const selected = route.id ? eligible.find(lot => lot.id === route.id) : eligible[0];
-    const detail = route.page !== 'lots' && selected ? await api.detail(selected.id) : null;
+    const detail = route.page === 'lots' || !selected ? null
+      : route.page === 'sampling' ? await api.sampling(selected.id)
+      : await api.detail(selected.id);
     if (tick !== revision) return;
     const changed = !quiet || store.detail?.lot.state !== detail?.lot.state || store.detail?.lot.id !== detail?.lot.id;
     const changedLot = store.detail?.lot.id !== detail?.lot.id;
     Object.assign(store,{lots,materials,detail,loading:false,error:''});
     if (changedLot) {
-      const live = detail?.marks.find(mark => mark.measure_id === detail.current?.id);
+      const live = detail?.marks?.find(mark => mark.measure_id === detail.current?.id);
       store.zone = live?.zone || 'front';
     }
     if (changed) render();
@@ -88,7 +92,7 @@ function notify(text, kind = 'success') {
   feedbackTimer = setTimeout(() => { notice.className = ''; notice.textContent = ''; }, 6500);
 }
 
-const numeric = new Set(['units','x_pct','y_pct','rework_units','replaced_units',...CHANNELS.map(([key])=>key)]);
+const numeric = new Set(['units','x_pct','y_pct','rework_units','replaced_units','pallet_id',...CHANNELS.map(([key])=>key)]);
 function serialize(form, submitter) {
   const entries = new FormData(form, submitter);
   return Object.fromEntries([...entries].flatMap(([key,value]) => {
@@ -97,7 +101,7 @@ function serialize(form, submitter) {
   }));
 }
 
-const success = {measurements:'测量归档成功', marks:'缺陷已标记', grade:'判级已提交', 'grade/review':'等级已签核', 'rework/issue':'领料已过账', 'rework/verify':'复测已签核', close:'批次已关闭'};
+const success = {measurements:'测量归档成功', marks:'缺陷已标记', grade:'判级已提交', 'grade/review':'等级已签核', 'rework/issue':'领料已过账', 'rework/verify':'复测已签核', close:'批次已关闭', 'sampling/plan':'抽检方案已登记', 'sampling/rounds':'补抽件号已发放', 'sampling/sign':'抽检已签核'};
 async function perform(action, button, payload) {
   if (button) button.disabled = true;
   try {
@@ -107,7 +111,7 @@ async function perform(action, button, payload) {
     } else {
       await api.action(store.detail.lot.id, action, payload);
       await load();
-      notify(success[action] || '缺陷复核已保存');
+      notify(success[action] || (action.startsWith('sampling/items/') ? '件号判级已记录' : '缺陷复核已保存'));
     }
   } catch (error) {
     const message = `${error.message}${error.channels?.length ? ' · '+error.channels.map(channelName).join('、') : ''}`;
@@ -143,6 +147,21 @@ root.addEventListener('click', event => {
     form.querySelector('button').focus();
   }
   if (target.dataset.dialog) root.querySelector(`#${target.dataset.dialog}`).showModal();
+  if (target.hasAttribute('data-add-pallet')) {
+    const rows = root.querySelector('[data-pallet-rows]');
+    const clone = rows.querySelector('.pallet-row').cloneNode(true);
+    clone.querySelectorAll('input').forEach(input => { input.value = ''; });
+    rows.appendChild(clone);
+    clone.querySelector('input').focus();
+  }
+  if (target.dataset.gradeItem) {
+    const dialog = root.querySelector('#grade-item');
+    const form = dialog.querySelector('form');
+    form.dataset.action = `sampling/items/${target.dataset.gradeItem}/grade`;
+    form.reset();
+    dialog.querySelector('.item-ref').textContent = `托盘 ${target.dataset.pallet} · 件号 #${target.dataset.itemNo}`;
+    dialog.showModal();
+  }
   if (target.dataset.dismiss) root.querySelector(`#${target.dataset.dismiss}`).close();
   if (target.dataset.zone) {
     store.zone = target.dataset.zone;
@@ -185,6 +204,12 @@ root.addEventListener('submit', async event => {
   } else if (form.id === 'lot-filter') {
     store.filter = {...payload,search:payload.search.trim()};
     render();
+  } else if (form.id === 'plan-form') {
+    const pallets = [...form.querySelectorAll('.pallet-row')]
+      .map(row => ({label:row.querySelector('[name=plabel]').value.trim(),
+                    units:Number(row.querySelector('[name=punits]').value)}))
+      .filter(pallet => pallet.label && pallet.units > 0);
+    await perform(form.dataset.action,button,{pallets});
   } else if (form.dataset.action) {
     await perform(form.dataset.action,button,payload);
   }

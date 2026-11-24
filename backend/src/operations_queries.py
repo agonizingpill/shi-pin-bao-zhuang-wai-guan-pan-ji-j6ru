@@ -12,4 +12,17 @@ SELECT l.code,r.id,r.sku,COALESCE(s.bin,'未配置'),r.reason,r.state,r.verifica
 FROM rework_issue r JOIN pack_lot l ON l.id=r.lot_id LEFT JOIN material_stock s ON s.sku=r.sku ORDER BY r.id DESC
 """,
     ),
+    'sampling-signoff': (
+        '抽检签核依据',
+        '按批次核对托盘抽检结论、加权 C 级占比区间与签核快照，用于放行复核。',
+        ['批次', '方案状态', '托盘数', '已判件数', 'C 级件数', '加权估计', '区间下限', '区间上限', '签核人', '签核时间'],
+        """
+SELECT l.code AS lot_code,p.state AS plan_state,
+       (SELECT count(*) FROM sample_pallet sp WHERE sp.plan_id=p.id) AS pallets,
+       p.basis->>'total_judged' AS judged,p.basis->>'total_c' AS c,
+       p.basis->>'estimate' AS estimate,p.basis->>'low' AS low,p.basis->>'high' AS high,
+       COALESCE(p.signed_by,'—') AS signer,COALESCE(to_char(p.signed_at,'MM-DD HH24:MI'),'—') AS signed_at
+FROM sample_plan p JOIN pack_lot l ON l.id=p.lot_id ORDER BY p.id DESC
+""",
+    ),
 }

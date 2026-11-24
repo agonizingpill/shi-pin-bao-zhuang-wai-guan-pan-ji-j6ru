@@ -11,4 +11,5 @@ def connect():
 def migrate():
     with connect() as db:
         db.execute('SELECT pg_advisory_xact_lock(106500)')
-        db.execute(Path('/app/migrations/001_workcell.sql').read_text())
+        for path in sorted(Path('/app/migrations').glob('*.sql')):
+            db.execute(path.read_text())

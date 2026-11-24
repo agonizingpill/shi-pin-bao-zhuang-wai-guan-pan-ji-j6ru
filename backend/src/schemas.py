@@ -100,5 +100,30 @@ class Verification(MeasureInput):
     note: Note
 
 
+class PalletInput(Payload):
+    label: Text
+    units: Qty
+
+
+class PlanInput(Payload):
+    pallets: Annotated[list[PalletInput], Field(min_length=1, max_length=40)]
+
+
+class RoundInput(Payload):
+    pallet_id: Annotated[int, Field(strict=True, ge=1)] | None = None
+
+
+class ItemGradeInput(Payload):
+    wrinkle_pct: Annotated[float, Field(ge=0, le=100)]
+    offset_mm: Annotated[float, Field(ge=0, le=20)]
+    delta_e: Annotated[float, Field(ge=0, le=60)]
+    seal_gap_mm: Annotated[float, Field(ge=0, le=12)]
+    gloss_cv: Annotated[float, Field(ge=0, le=100)]
+
+
+class PlanSignInput(Payload):
+    note: Note | None = None
+
+
 CHANNELS = ('wrinkle_pct', 'offset_mm', 'delta_e', 'seal_gap_mm', 'gloss_cv')
 VERIFICATION_LIMITS = dict(zip(CHANNELS, (1.0, 0.5, 2.0, 0.35, 4.0), strict=True))

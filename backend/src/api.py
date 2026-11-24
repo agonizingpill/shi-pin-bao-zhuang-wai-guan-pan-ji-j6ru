@@ -10,12 +10,12 @@ from psycopg import errors
 from redis.exceptions import RedisError
 
 from .operations_evidence import router as operations_evidence
-from . import disposition, inspection
+from . import disposition, inspection, sampling
 from .auth import identity, issue_token, password_matches, require
 from .db import connect
 from .queue import WAKE_QUEUE, redis
-from .schemas import (VERIFICATION_LIMITS, GradeReview, Login, LotInput, MarkInput, MarkReview,
-                      MeasureInput, Role, Verification)
+from .schemas import (VERIFICATION_LIMITS, GradeReview, ItemGradeInput, Login, LotInput, MarkInput, MarkReview,
+                      MeasureInput, PlanInput, PlanSignInput, Role, RoundInput, Verification)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('packaging')
@@ -160,3 +160,34 @@ def verify(lot_id: int, data: Verification, actor=Depends(supervisor)):
 def close(lot_id: int, actor=Depends(supervisor)):
     with connect() as db:
         return disposition.close_lot(db, lot_id, actor)
+
+
+@app.post('/lots/{lot_id}/sampling/plan', status_code=201)
+def sampling_plan_create(lot_id: int, data: PlanInput, actor=Depends(operator)):
+    with connect() as db:
+        return sampling.create_plan(db, lot_id, data, actor)
+
+
+@app.get('/lots/{lot_id}/sampling')
+def sampling_detail(lot_id: int, _=Depends(identity)):
+    with connect() as db:
+        db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+        return sampling.plan_detail(db, lot_id)
+
+
+@app.post('/lots/{lot_id}/sampling/rounds', status_code=201)
+def sampling_round(lot_id: int, data: RoundInput | None = None, actor=Depends(operator)):
+    with connect() as db:
+        return sampling.issue_round(db, lot_id, data, actor)
+
+
+@app.post('/lots/{lot_id}/sampling/items/{item_id}/grade')
+def sampling_grade(lot_id: int, item_id: int, data: ItemGradeInput, actor=Depends(operator)):
+    with connect() as db:
+        return sampling.grade_item(db, lot_id, item_id, data, actor)
+
+
+@app.post('/lots/{lot_id}/sampling/sign')
+def sampling_sign(lot_id: int, data: PlanSignInput, actor=Depends(supervisor)):
+    with connect() as db:
+        return sampling.sign_plan(db, lot_id, data, actor)

@@ -40,8 +40,13 @@ export function auditList(events) {
 }
 
 function auditNote(event) {
-  const {sample, revision, missing, exceeds, reason, note, model, final, quantity, sku} = event.details;
+  const {sample, revision, missing, exceeds, reason, note, model, final, quantity, sku,
+         pallet, round_no, draw_size, conclusion, estimate, high, actual} = event.details;
   return [sample && `${sample}${revision ? ` · v${revision}` : ''}`, model && `模型 ${model} → 人工 ${final}`,
     reason || note, quantity && `${sku} · ${number(quantity)} 件`, missing?.length && `缺失 ${missing.map(channelName).join('、')}`,
-    exceeds?.length && `超限 ${exceeds.map(channelName).join('、')}`].filter(Boolean).map(line => `<p>${safe(line)}</p>`).join('');
+    exceeds?.length && `超限 ${exceeds.map(channelName).join('、')}`,
+    pallet && `托盘 ${pallet}${round_no ? ` · 第 ${round_no} 抽次` : ''}${draw_size ? ` · 发放 ${number(draw_size)} 件` : ''}`,
+    conclusion && `结论 ${STATES[conclusion] || conclusion}`,
+    estimate != null && `加权 ${(estimate*100).toFixed(2)}% · 上限 ${(high*100).toFixed(2)}%`,
+    actual != null && `实测 ${(actual*100).toFixed(2)}%`].filter(Boolean).map(line => `<p>${safe(line)}</p>`).join('');
 }
